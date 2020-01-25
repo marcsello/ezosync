@@ -13,7 +13,7 @@ from ezotv import EZOTV
 
 def run():
     logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s: %(message)s", handlers=[
-        logging.FileHandler("ezosync.log"),
+        logging.FileHandler(os.environ.get("LOGPATH", "ezosync.log")),
         logging.StreamHandler()
     ])
 
