@@ -3,6 +3,7 @@ import os
 import MySQLdb
 import requests
 import logging
+import logging.handlers
 from mcrcon import MCRcon
 
 from lockfile import LockFile
@@ -13,7 +14,7 @@ from ezotv import EZOTV
 
 def run():
     logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s: %(message)s", handlers=[
-        logging.FileHandler(os.environ.get("LOGPATH", "ezosync.log")),
+        logging.handlers.RotatingFileHandler(os.environ.get("LOGPATH", "logs/ezosync.log"), maxBytes=1048576, backupCount=5),
         logging.StreamHandler()
     ])
 
