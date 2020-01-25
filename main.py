@@ -30,17 +30,68 @@ def run():
     discord_guild_member_ids = discord.get_guild_member_ids()
     discord_guild_member_ids.remove('329622641713348618')  # EZO-BOT
 
-    master_user_list = []
+    target_user_list = []
 
     for user in ezotv.get_users():
         if user['discord_id'] in discord_guild_member_ids:
-            master_user_list.append(user)
+            target_user_list.append(user)
 
-    logging.info("List of allowed users: " + " ".join(member['minecraft_name'] for member in master_user_list))
+    target_user_names = [member['minecraft_name'] for member in target_user_list]
+
+    logging.info("List of allowed users: " + " ".join(target_user_names))
+
+    # WARNING: Name change is currently handled by an unregister-re-register sequence. Later, when users addressed by id. this should be considered
 
     # STEP2 unregister and kick everyone not on the list
+    active_user_list = db.get_current_users()
+    active_user_names = [member['realname'] for member in active_user_list]
+    logging.info("Currently registered users: " + " ".join(active_user_names))
+
+    mcr.connect()
+    for user in active_user_list:
+        if not user['realname']:  # ratyis workaround
+            user['realname'] = user['username']
+
+        if user['realname'] not in target_user_names:
+            logging.info("Removing {}".format(user['realname']))
+
+            # Delete registration
+            db.delete_user(user['id'])
+
+            # kick player
+            logging.debug("Kicking player...")
+            logging.debug("MC RCON: " + mcr.command("kick {} Az EZO.TV regisztrációd megszűnt!".format(user['realname'])))
+
+    mcr.disconnect()
+
+    active_user_list = db.get_current_users()
+    active_user_names = [member['realname'] for member in active_user_list]
+    logging.info("Registered users after cleaning: " + " ".join(active_user_names))
+
     # STEP3 register everyone who is on the list but not in the database
+    for user in target_user_list:
+        if user['minecraft_name'] not in active_user_names:
+            logging.info("Creating user: {}".format(user['minecraft_name']))
+            db.create_user(user['id'], user['minecraft_name'].lower(), user['minecraft_name'], user['password'], user['salt'])
+
+            logging.debug("Setting in_sync flag...")
+            ezotv.set_sync(user['id'])
+
+    active_user_list = db.get_current_users()
+    active_user_names = [member['realname'] for member in active_user_list]
+    logging.info("Registered users after creating new users: " + " ".join(active_user_names))
+
     # STEP4 update all changed passwords
+    logging.info("Updating passwords...")
+    for auser in active_user_list:
+        for tuser in target_user_list:
+            if auser['realname'] == tuser['minecraft_name']:
+                if auser['password'] != tuser['password'] or auser['salt'] != tuser['salt']:
+                    logging.debug('Updating password for {}'.format(tuser['minecraft_name']))
+                    db.update_password(tuser['id'], tuser['password'], tuser['salt'])
+
+                    logging.debug("Setting in_sync flag...")
+                    ezotv.set_sync(tuser['id'])
 
     logging.info("EZO-SYNC finished")
 

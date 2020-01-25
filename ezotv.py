@@ -15,7 +15,7 @@ class EZOTV(object):
         return r.json()
 
     def set_sync(self, uid: int) -> dict:
-        r = self._session.patch(f"https://ezotv.marcsello.com/api/user/{uid}", data={"in_sync": True})
+        r = self._session.patch(f"https://ezotv.marcsello.com/api/user/{uid}", json={"in_sync": True})
         r.raise_for_status()
 
         return r.json()
