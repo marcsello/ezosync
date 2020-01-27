@@ -59,11 +59,12 @@ def run():
             db.delete_user(user['id'])
             players_to_kick.append(user['realname'])
 
-    with MCRcon(os.environ['RCON_HOST'], os.environ['RCON_PASSWORD']) as mcr:
-        for player_to_kick in players_to_kick:
-            # kick player
-            logging.debug(f"Kicking {player_to_kick}...")
-            logging.debug("MC RCON: " + mcr.command(f"kick {player_to_kick} Az EZO.TV regisztrációd megszűnt!"))
+    if players_to_kick:
+        with MCRcon(os.environ['RCON_HOST'], os.environ['RCON_PASSWORD']) as mcr:
+            for player_to_kick in players_to_kick:
+                # kick player
+                logging.debug(f"Kicking {player_to_kick}...")
+                logging.debug("MC RCON: " + mcr.command(f"kick {player_to_kick} Az EZO.TV regisztrációd megszűnt!"))
 
     active_user_list = db.get_current_users()
     active_user_names = [member['realname'] for member in active_user_list]
