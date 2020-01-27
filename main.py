@@ -24,7 +24,6 @@ def run():
     db = DB(os.environ['MYSQL_USER'], os.environ['MYSQL_PASSWORD'], os.environ['MYSQL_DB'], os.environ.get('MYSQL_HOST', None), os.environ.get('MYSQL_TABLE', 'authme'))
     ezotv = EZOTV(os.environ['EZOTV_APIKEY'])
     discord = Discord(os.environ['DISCORD_BOTKEY'], os.environ['DISCORD_GUILD'])
-    mcr = MCRcon(os.environ['RCON_HOST'], os.environ['RCON_PASSWORD'])
 
     # STEP1 Create an intersect of web and discord data
     logging.debug("Creating an intersect of discord members and approved registrants...")
@@ -48,7 +47,7 @@ def run():
     active_user_names = [member['realname'] for member in active_user_list]
     logging.info("Currently registered users: " + " ".join(active_user_names))
 
-    mcr.connect()
+    players_to_kick = []
     for user in active_user_list:
         if not user['realname']:  # ratyis workaround
             user['realname'] = user['username']
@@ -58,12 +57,13 @@ def run():
 
             # Delete registration
             db.delete_user(user['id'])
+            players_to_kick.append(user['realname'])
 
+    with MCRcon(os.environ['RCON_HOST'], os.environ['RCON_PASSWORD']) as mcr:
+        for player_to_kick in players_to_kick:
             # kick player
-            logging.debug("Kicking player...")
-            logging.debug("MC RCON: " + mcr.command("kick {} Az EZO.TV regisztrációd megszűnt!".format(user['realname'])))
-
-    mcr.disconnect()
+            logging.debug(f"Kicking {player_to_kick}...")
+            logging.debug("MC RCON: " + mcr.command(f"kick {player_to_kick} Az EZO.TV regisztrációd megszűnt!"))
 
     active_user_list = db.get_current_users()
     active_user_names = [member['realname'] for member in active_user_list]
