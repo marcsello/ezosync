@@ -23,7 +23,7 @@ def run():
     logging.debug("Preparing connections...")
     db = DB(os.environ['MYSQL_USER'], os.environ['MYSQL_PASSWORD'], os.environ['MYSQL_DB'], os.environ.get('MYSQL_HOST', None), os.environ.get('MYSQL_TABLE', 'authme'))
     ezotv = EZOTV(os.environ['EZOTV_APIKEY'])
-    discord = Discord(os.environ['DISCORD_BOTKEY'], os.environ['DISCORD_GUILD'])
+    discord = Discord(os.environ['DISCORD_BOTKEY'], os.environ['DISCORD_GUILD'], os.environ['DISCORD_ADMINCHAT'])
 
     # STEP1 Create an intersect of web and discord data
     logging.debug("Creating an intersect of discord members and approved registrants...")
@@ -66,15 +66,20 @@ def run():
                 logging.debug(f"Kicking {player_to_kick}...")
                 logging.debug("MC RCON: " + mcr.command(f"kick {player_to_kick} Az EZO.TV regisztrációd megszűnt!"))
 
+    players_kicked = players_to_kick
+
     active_user_list = db.get_current_users()
     active_user_names = [member['realname'] for member in active_user_list]
     logging.info("Registered users after cleaning: " + " ".join(active_user_names))
 
     # STEP3 register everyone who is on the list but not in the database
+    players_added = []
     for user in target_user_list:
         if user['minecraft_name'] not in active_user_names:
             logging.info("Creating user: {}".format(user['minecraft_name']))
             db.create_user(user['id'], user['minecraft_name'].lower(), user['minecraft_name'], user['password'], user['salt'])
+
+            players_added.append(user['minecraft_name'])
 
             logging.debug("Setting in_sync flag...")
             ezotv.set_sync(user['id'])
@@ -94,6 +99,23 @@ def run():
 
                     logging.debug("Setting in_sync flag...")
                     ezotv.set_sync(tuser['id'])
+
+    # LAST STEP Send summary to discord adminchat
+    if players_added or players_kicked:
+        logging.debug("Sending Discord message ...")
+
+        message = "Synchronization complete!"
+
+        if players_added:
+            message += f"\nAdded {len(players_added)} players: " + ", ".join(players_added)
+
+        if players_kicked:
+            message += f"\nRemoved {len(players_kicked)} players: " + ", ".join(players_kicked)
+
+        discord.post_log(message)
+
+    else:
+        logging.debug("No Discord message sending required")
 
     logging.info("EZO-SYNC finished")
 
