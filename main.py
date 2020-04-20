@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 import os
+
+import sentry_sdk
+from sentry_sdk.integrations.logging import LoggingIntegration
+
 import MySQLdb
 import requests
 import logging
@@ -17,6 +21,19 @@ def run():
         logging.handlers.RotatingFileHandler(os.environ.get("LOGPATH", "logs/ezosync.log"), maxBytes=1048576, backupCount=5),
         logging.StreamHandler()
     ])
+
+
+    SENTRY_DSN = os.environ.get("SENTRY_DSN")
+    if SENTRY_DSN:
+        sentry_logging = LoggingIntegration(
+            level=logging.DEBUG,
+            event_level=logging.ERROR  # Send errors as events
+        )
+        sentry_sdk.init(
+            dsn=SENTRY_DSN,
+            integrations=[sentry_logging],
+            send_default_pii=True
+        )
 
     logging.info("Starting EZO-SYNC...")
     # Prepare some stuff
