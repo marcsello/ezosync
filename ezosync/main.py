@@ -4,8 +4,6 @@ import os
 import sentry_sdk
 from sentry_sdk.integrations.logging import LoggingIntegration
 
-import MySQLdb
-import requests
 import logging
 import logging.handlers
 from mcrcon import MCRcon
