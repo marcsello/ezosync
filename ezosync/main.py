@@ -5,30 +5,39 @@ import sentry_sdk
 from sentry_sdk.integrations.logging import LoggingIntegration
 
 import logging
-import logging.handlers
 from mcrcon import MCRcon
 
-from lockfile import LockFile
 from db import DB
 from discord import Discord
 from ezotv import EZOTV
 
 
-def run():
-    logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s: %(message)s", handlers=[
-        logging.handlers.RotatingFileHandler(os.environ.get("LOGPATH", "logs/ezosync.log"), maxBytes=1048576, backupCount=5),
-        logging.StreamHandler()
-    ])
-
-
+class Config:
     SENTRY_DSN = os.environ.get("SENTRY_DSN")
-    if SENTRY_DSN:
+    MYSQL_USER = os.environ['MYSQL_USER']
+    MYSQL_PASSWORD = os.environ['MYSQL_PASSWORD']
+    MYSQL_DB = os.environ['MYSQL_DB']
+    MYSQL_HOST = os.environ.get('MYSQL_HOST')  # None = unix socket
+    MYSQL_TABLE = os.environ.get('MYSQL_TABLE', 'authme')
+    EZOTV_APIKEY = os.environ['EZOTV_APIKEY']
+    DISCORD_BOTKEY = os.environ['DISCORD_BOTKEY']
+    DISCORD_GUILD = os.environ['DISCORD_GUILD']
+    DISCORD_ADMINCHAT = os.environ['DISCORD_ADMINCHAT']
+    IGNORE_MEMBERS = os.environ.get("IGNORE_MEMBERS", "329622641713348618").split(',')  # Ignore EZO-BOT
+    RCON_HOST = os.environ.get('RCON_HOST', '127.0.0.1')
+    RCON_PASSWORD = os.environ['RCON_PASSWORD']
+
+
+def main():
+    logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s: %(message)s", filename='')
+
+    if Config.SENTRY_DSN:
         sentry_logging = LoggingIntegration(
             level=logging.DEBUG,
             event_level=logging.ERROR  # Send errors as events
         )
         sentry_sdk.init(
-            dsn=SENTRY_DSN,
+            dsn=Config.SENTRY_DSN,
             integrations=[sentry_logging],
             send_default_pii=True
         )
@@ -36,14 +45,17 @@ def run():
     logging.info("Starting EZO-SYNC...")
     # Prepare some stuff
     logging.debug("Preparing connections...")
-    db = DB(os.environ['MYSQL_USER'], os.environ['MYSQL_PASSWORD'], os.environ['MYSQL_DB'], os.environ.get('MYSQL_HOST', None), os.environ.get('MYSQL_TABLE', 'authme'))
-    ezotv = EZOTV(os.environ['EZOTV_APIKEY'])
-    discord = Discord(os.environ['DISCORD_BOTKEY'], os.environ['DISCORD_GUILD'], os.environ['DISCORD_ADMINCHAT'])
+    db = DB(Config.MYSQL_USER, Config.MYSQL_PASSWORD, Config.MYSQL_DB,
+            Config.MYSQL_HOST, Config.MYSQL_TABLE)
+    ezotv = EZOTV(Config.EZOTV_APIKEY)
+    discord = Discord(Config.DISCORD_BOTKEY, Config.DISCORD_GUILD, Config.DISCORD_ADMINCHAT)
 
     # STEP1 Create an intersect of web and discord data
     logging.debug("Creating an intersect of discord members and approved registrants...")
     discord_guild_member_ids = discord.get_guild_member_ids()
-    discord_guild_member_ids.remove('329622641713348618')  # EZO-BOT
+
+    for ignored_member in Config.IGNORE_MEMBERS:
+        discord_guild_member_ids.remove(ignored_member)
 
     target_user_list = []
 
@@ -75,7 +87,7 @@ def run():
             players_to_kick.append(user['realname'])
 
     if players_to_kick:
-        with MCRcon(os.environ['RCON_HOST'], os.environ['RCON_PASSWORD']) as mcr:
+        with MCRcon(Config.RCON_HOST, Config.RCON_PASSWORD) as mcr:
             for player_to_kick in players_to_kick:
                 # kick player
                 logging.debug(f"Kicking {player_to_kick}...")
@@ -92,7 +104,13 @@ def run():
     for user in target_user_list:
         if user['minecraft_name'] not in active_user_names:
             logging.info("Creating user: {}".format(user['minecraft_name']))
-            db.create_user(user['id'], user['minecraft_name'].lower(), user['minecraft_name'], user['password'], user['salt'])
+            db.create_user(
+                user['id'],
+                user['minecraft_name'].lower(),
+                user['minecraft_name'],
+                user['password'],
+                user['salt']
+            )
 
             players_added.append(user['minecraft_name'])
 
@@ -133,14 +151,6 @@ def run():
         logging.debug("No Discord message sending required")
 
     logging.info("EZO-SYNC finished")
-
-
-def main():
-    # Step -1 read config file
-    l = LockFile('/tmp/ezosync.pid')
-
-    with l:  # makes sure, hogy ezen a rendszeren egyidőben csak egyszer fusson
-        run()
 
 
 if __name__ == "__main__":
