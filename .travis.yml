@@ -7,14 +7,15 @@ services:
   - docker
 
 script:
-  - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
-
+  - docker build -t $DOCKER_USERNAME/ezosync:$TRAVIS_BUILD_NUMBER .
+  
 after_success:
-  - docker build -t $DOCKER_USERNAME/ezosync:latest .
+  - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+  - docker tag $DOCKER_USERNAME/ezosync:$TRAVIS_BUILD_NUMBER $DOCKER_USERNAME/ezosync:latest
 
 deploy:
   skip_cleanup: true
   provider: script
-  script: docker push $DOCKER_USERNAME/ezosync:latest
+  script: docker push $DOCKER_USERNAME/ezosync
   on:
     branch: master
