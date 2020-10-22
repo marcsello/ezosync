@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import os
+import sys
 
 import sentry_sdk
 from sentry_sdk.integrations.logging import LoggingIntegration
@@ -22,7 +23,10 @@ class Config:
 
 
 def main():
-    logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s: %(message)s", filename='')
+    logging.basicConfig(level=logging.DEBUG if '--debug' in sys.argv else logging.INFO, format="%(asctime)s - %(levelname)s: %(message)s", filename='')
+
+    if '--debug' in sys.argv:
+        logging.warning("DEBUG LOGGING ENABLED! This may expose sensitive information such as hashed passwords. Please consider disabling debug log!")
 
     if Config.SENTRY_DSN:
         sentry_logging = LoggingIntegration(
