@@ -2,7 +2,7 @@
 import requests
 
 
-class EZOTV(object):
+class EZOTVWeb(object):
 
     def __init__(self, apikey: str):
         self._session = requests.Session()
