@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import os
 import sys
+import time
 
 import sentry_sdk
 from sentry_sdk.integrations.logging import LoggingIntegration
@@ -23,10 +24,12 @@ class Config:
 
 
 def main():
-    logging.basicConfig(level=logging.DEBUG if '--debug' in sys.argv else logging.INFO, format="%(asctime)s - %(levelname)s: %(message)s", filename='')
+    logging.basicConfig(level=logging.DEBUG if '--debug' in sys.argv else logging.INFO,
+                        format="%(asctime)s - %(levelname)s: %(message)s", filename='')
 
     if '--debug' in sys.argv:
-        logging.warning("DEBUG LOGGING ENABLED! This may expose sensitive information such as hashed passwords. Please consider disabling debug log!")
+        logging.warning(
+            "DEBUG LOGGING ENABLED! This may expose sensitive information such as hashed passwords. Please consider disabling debug log!")
 
     if Config.SENTRY_DSN:
         sentry_logging = LoggingIntegration(
@@ -100,7 +103,8 @@ def main():
             ezotv.set_sync(user['id'])
 
     active_user_list = ezoapi.get_users()
-    logging.info("Registered users after creating new users: " + " ".join(member['realname'] for member in active_user_list))
+    logging.info(
+        "Registered users after creating new users: " + " ".join(member['realname'] for member in active_user_list))
 
     # STEP4 update all changed passwords and names
     logging.info("Updating passwords and names...")
@@ -146,5 +150,26 @@ def main():
     logging.info("EZO-SYNC finished")
 
 
+def time_padded_run(amount: float, func: callable):
+    one_third = amount / 3
+
+    def call():
+        print(f"Waiting {one_third} secs before starting")
+        time.sleep(one_third)
+        func()
+        print(f"Waiting {one_third * 2} secs before exiting")
+        time.sleep(one_third * 2)
+
+    return call
+
+
 if __name__ == "__main__":
-    main()
+
+    time_pad = os.environ.get('TIME_PADDING')
+
+    if time_pad:
+        main_func = time_padded_run(float(time_pad), main)
+    else:
+        main_func = main
+
+    main_func()
